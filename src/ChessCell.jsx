@@ -1,4 +1,4 @@
-import { ChessPiece } from "./chessPiece"
+import { ChessPiece } from "./ChessPiece"
 import { useDroppable } from '@dnd-kit/react';
 
 
