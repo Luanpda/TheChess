@@ -322,11 +322,14 @@ export default function ChessUI() {
               value={selectedDifficulty}
               onChange={(e) => setSelectedDifficulty(Number(e.target.value))}
             >
+              <option value={3}>🤪 (depth 2)</option>
+              <option value={3}>Arthur (depth 3)</option>
               <option value={5}>Fácil (depth 5)</option>
+              <option value={5}>Marromeno (depth 7)</option>
               <option value={10}>Médio (depth 10)</option>
               <option value={15}>Difícil (depth 15)</option>
               <option value={20}>Mestre (depth 20)</option>
-              <option value={25}>GM (depth 25)</option>
+              <option value={25}>GM(Luan) (depth 25)</option>
             </select>
           </div>
           
