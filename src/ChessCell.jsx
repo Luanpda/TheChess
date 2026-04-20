@@ -6,7 +6,6 @@ import { useDroppable } from '@dnd-kit/react';
 export const ChessCell = ({ cell, rowIndex, colIndex, isFlipped, isDarkSquare, currentRanks, currentFiles, id,isLeftEdge,isBottomEdge,src,casa, moves,pieceKey}) => {
     const {ref} = useDroppable({id});
     const casaDestino = moves.map(move => move.to);
-    console.log(casaDestino);
 
 
   return (

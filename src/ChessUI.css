@@ -1,18 +1,15 @@
-/* Importando uma fonte moderna do Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 
 :root {
-  /* Paleta de Cores Moderna */
   --bg-main: #121214;
   --bg-panel: #202024;
   --text-main: #e1e1e6;
   --text-muted: #a8a8b3;
   --accent: #8257e5;
   --accent-hover: #996dff;
-  
-  /* Cores do Tabuleiro (Estilo Moderno Suave) */
   --board-light: #ebecd0;
   --board-dark: #739552;
+  --board-frame: 4px;
 }
 
 * {
@@ -20,6 +17,13 @@
   margin: 0;
   padding: 0;
 }
+
+html,
+body,
+#root {
+  width: 100%;
+}
+
 img {
   -webkit-user-drag: none;
   user-select: none;
@@ -40,9 +44,9 @@ body {
   display: flex;
   flex-direction: column;
   padding: 20px;
+  margin: 0 auto;
 }
 
-/* --- HEADER / TOP BAR --- */
 .chess-header {
   display: flex;
   justify-content: space-between;
@@ -95,7 +99,6 @@ body {
   border-color: var(--accent);
 }
 
-/* --- ÁREA DO TABULEIRO --- */
 .board-area {
   display: flex;
   justify-content: center;
@@ -108,10 +111,9 @@ body {
   flex-direction: column;
   gap: 12px;
   width: 100%;
-  max-width: 600px; /* Tamanho máximo do tabuleiro */
+  max-width: 600px;
 }
 
-/* --- LABELS (Nomes Brancas/Pretas) --- */
 .player-label {
   display: flex;
   align-items: center;
@@ -127,20 +129,18 @@ body {
 .player-indicator {
   width: 12px;
   height: 12px;
-   /* Cor do indicador de Pretas */
   border-radius: 50%;
   margin-right: 10px;
   border: 2px solid #555;
 }
-.turno{
+
+.turno {
   background-color: #82ff05 !important;
 }
 
-
-
 .bottom-label {
   display: flex;
-  justify-content: space-between; /* Separa o nome do botão de inverter */
+  justify-content: space-between;
   align-items: center;
 }
 
@@ -149,7 +149,6 @@ body {
   align-items: center;
 }
 
-/* Botão de Inverter */
 .flip-btn {
   background-color: var(--bg-panel);
   color: var(--text-main);
@@ -173,20 +172,41 @@ body {
   transform: scale(0.95);
 }
 
-/* --- O TABULEIRO (CSS GRID) --- */
-.chess-board {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  grid-template-rows: repeat(8, 1fr);
+.chess-board-shell {
+  position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1; /* Mantém o tabuleiro sempre quadrado */
-  border: 4px solid var(--bg-panel);
+  aspect-ratio: 1 / 1;
+  border: var(--board-frame) solid var(--bg-panel);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
-/* Casas do Tabuleiro */
+.chess-board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  width: 100%;
+  height: 100%;
+}
+
+.board-arrows {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.board-arrow {
+  fill: rgba(27, 83, 187, 0.42);
+}
+
+.board-arrow.preview {
+  fill: rgba(27, 83, 187, 0.3);
+}
+
 .square {
   display: flex;
   justify-content: center;
@@ -200,22 +220,23 @@ body {
   background-color: var(--board-light);
 }
 
-.cavalo{
-  width: 75% !important;
-}
-
 .square.dark {
   background-color: var(--board-dark);
 }
 
-/* Peças */
+.cavalo {
+  width: 75% !important;
+}
+
 .piece {
   width: 85%;
   height: 85%;
   object-fit: contain;
-  filter: drop-shadow(0px 3px 2px rgba(0, 0, 0, 0.4)); /* Dá uma leve profundidade à peça */
-  cursor: pointer; /* Prepara para quando você adicionar drag-and-drop */
+  filter: drop-shadow(0px 3px 2px rgba(0, 0, 0, 0.4));
+  cursor: pointer;
   transition: transform 0.1s ease;
+  position: relative;
+  z-index: 2;
 }
 
 .piece:hover {
@@ -227,8 +248,8 @@ body {
   position: absolute;
   font-size: 0.75rem;
   font-weight: 700;
-  user-select: none; /* Impede que o texto seja selecionado ao clicar/arrastar peças */
-  pointer-events: none; /* Impede que o número atrapalhe o clique na peça */
+  user-select: none;
+  pointer-events: none;
 }
 
 .coordinate-rank {
@@ -241,7 +262,6 @@ body {
   right: 4px;
 }
 
-/* Cores contrastantes: Letra escura na casa clara, letra clara na casa escura */
 .square.light .coordinate-rank,
 .square.light .coordinate-file {
   color: var(--board-dark);
@@ -252,40 +272,32 @@ body {
   color: var(--board-light);
 }
 
-
-/* --- INDICADORES DE MOVIMENTO --- */
-
-/* 1. Casa Vazia (Ponto no centro) */
 .square.valid-move::after {
   content: '';
   position: absolute;
   width: 25%;
   height: 25%;
-  background-color: rgba(0, 0, 0, 0.15); /* Ponto semi-transparente elegante */
-  border-radius: 50%;
-  z-index: 2;
-  pointer-events: none; /* Garante que o indicador não bloqueie o clique na casa */
-}
-
-/* 2. Casa com Peça Inimiga (Círculo vazado em volta da peça) */
-.square.valid-capture::after {
-  content: '';
-  position: absolute;
-  width: 90%;
-  height: 90%;
-  border: 5px solid rgba(0, 0, 0, 0.15); /* Borda circular */
+  background-color: rgba(0, 0, 0, 0.15);
   border-radius: 50%;
   z-index: 2;
   pointer-events: none;
 }
 
-/* Opcional: Se quiser que o indicador de captura fique vermelho para dar mais destaque */
-.square.valid-capture.danger::after {
-  border-color: rgba(220, 53, 69, 0.6); 
+.square.valid-capture::after {
+  content: '';
+  position: absolute;
+  width: 90%;
+  height: 90%;
+  border: 5px solid rgba(0, 0, 0, 0.15);
+  border-radius: 50%;
+  z-index: 2;
+  pointer-events: none;
 }
 
+.square.valid-capture.danger::after {
+  border-color: rgba(220, 53, 69, 0.6);
+}
 
-/* --- MODAL DE PROMOÇÃO --- */
 .promotion-modal {
   position: fixed;
   top: 50%;
@@ -341,13 +353,9 @@ body {
   visibility: hidden;
 }
 
-
-/* --- MODAL DE XEQUE-MATE --- */
 .checkmate-modal {
   position: fixed;
-  top: 0;
-  
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
   background-color: rgba(0, 0, 0, 0.8);
@@ -403,12 +411,9 @@ body {
   background-color: var(--accent-hover);
 }
 
-
-/* --- MODAL DE ESCOLHA DE COR --- */
 .color-picker-modal {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
   background-color: rgba(0, 0, 0, 0.7);
@@ -495,14 +500,14 @@ body {
   margin-bottom: 8px;
 }
 
- .color-preview.white {
-  background-color: #ffffff ;
-  box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+.color-preview.white {
+  background-color: #ffffff;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
 .color-preview.black {
-  background-color: #050505 ;
-  box-shadow: inset 0 0 10px rgba(255,255,255,0.1);
+  background-color: #050505;
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.1);
 }
 
 .color-preview.random {
@@ -513,8 +518,7 @@ body {
   font-size: 1.5rem;
   font-weight: bold;
   color: #3d3158;
-} 
-
+}
 
 .color-option span {
   color: var(--text-muted);
