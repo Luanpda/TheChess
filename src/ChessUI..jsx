@@ -502,7 +502,7 @@ export default function ChessUI() {
             >
               <option value={2}>Arthur</option>
               <option value={3}>Chumbos maximus</option>
-              <option value={5}>Facil (depth 5)</option>
+              <option value={5}>Facil</option>
               <option value={7}>Marromeno</option>
               <option value={10}>Medio</option>
               <option value={15}>Dificil</option>
