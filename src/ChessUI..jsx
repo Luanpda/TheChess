@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { DragDropProvider } from '@dnd-kit/react';
 import './ChessUI.css';
 
@@ -11,7 +11,8 @@ import {
   makeMove,
   resetGame,
 } from './chessLogica';
-import { getLuanAIMove, resetarAbertura } from './engine';
+import { resetarAbertura } from './engine';
+import { getLunaiMove } from './lunai';
 import { ChessCell } from './ChessCell';
 
 const PIECE_IMAGES = {
@@ -42,6 +43,95 @@ const chessBoardSquares = [
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
+const BOT_LEVELS = [
+  
+
+
+  {
+    id: 'arthur',
+    label: 'Arthur🥀😭',
+    stockfishElo: 100,
+    lunaiDepth: 1,
+    moveTimeMs: 200,
+  },
+  {
+    id:'soldado',
+    label: 'Ricardo Simonassi(soldado(soldier))🪖⚔️',
+    stockfishElo: 200,
+    lunaiDepth: 1,
+    moveTimeMs: 150,
+  },
+  {
+    id: 'chumbos-maximus',
+    label: 'Chumbos maximus',
+    stockfishElo: 300,
+    lunaiDepth: 2,
+    moveTimeMs: 250,
+  },
+  {
+    id: 'facil',
+    label: 'Fácil',
+    stockfishElo: 400,
+    lunaiDepth: 2,
+    moveTimeMs: 300,
+  },
+  {
+    id: 'marromeno',
+    label: 'Marromeno',
+    stockfishElo: 500,
+    lunaiDepth: 3,
+    moveTimeMs: 350,
+  },
+  {
+    id: 'medio',
+    label: 'Médio',
+    stockfishElo: 1000,
+    lunaiDepth: 3,
+    moveTimeMs: 450,
+  },
+  {
+    id: 'dificil',
+    label: 'Difícil',
+    stockfishElo: 1500,
+    lunaiDepth: 4,
+    moveTimeMs: 600,
+  },
+  {
+    id: 'mestre',
+    label: 'Mestre',
+    stockfishElo: 2350,
+    lunaiDepth: 4,
+    moveTimeMs: 800,
+  },
+  {
+    id: 'gm',
+    label: 'GM🐐(Luan)',
+    stockfishElo: 2600,
+    lunaiDepth: 5,
+    moveTimeMs: 1000,
+  },
+];
+
+function getBotLevel(levelId) {
+  return BOT_LEVELS.find((level) => level.id === levelId) ?? BOT_LEVELS[0];
+}
+
+function initializeStockfishEngine(worker) {
+  if (!worker) {
+    return;
+  }
+
+  worker.postMessage('uci');
+  worker.postMessage('setoption name UCI_LimitStrength value true');
+}
+
+function applyStockfishLevel(worker, level) {
+  if (!worker) {
+    return;
+  }
+
+  worker.postMessage(`setoption name UCI_Elo value ${level.stockfishElo}`);
+}
 
 export default function ChessUI() {
   const [isFlipped, setIsFlipped] = useState(false);
@@ -55,17 +145,24 @@ export default function ChessUI() {
   const [isBotThinking, setIsBotThinking] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [playerColor, setPlayerColor] = useState(null);
-  const [botDifficulty, setBotDifficulty] = useState(15);
-  const [selectedDifficulty, setSelectedDifficulty] = useState(15);
+  const [botLevelId, setBotLevelId] = useState('dificil');
+  const [selectedLevelId, setSelectedLevelId] = useState('dificil');
   const [arrows, setArrows] = useState([]);
   const [arrowDraft, setArrowDraft] = useState(null);
+  const [boardMetrics, setBoardMetrics] = useState(null);
   const stockfishRef = useRef(null);
   const boardRef = useRef(null);
-  const luanMoveTimeoutRef = useRef(null);
+  const botMoveTimeoutRef = useRef(null);
 
-  const isBotMode = activeMode === 'stockfish' || activeMode === 'luan';
+  const isBotMode = activeMode === 'stockfish' || activeMode === 'lunai';
   const isStockfishMode = activeMode === 'stockfish';
-  const isLuanMode = activeMode === 'luan';
+  const isLunaiMode = activeMode === 'lunai';
+  const currentBotLevel = getBotLevel(botLevelId);
+
+  const getActiveBotLabel = () => {
+    if (isLunaiMode) return 'Lunai';
+    return 'Stockfish';
+  };
 
   const syncGameState = () => {
     setINITIAL_BOARD(getTabuleiro());
@@ -81,7 +178,7 @@ export default function ChessUI() {
     }
 
     setPlayerColor(nextColor);
-    setBotDifficulty(selectedDifficulty);
+    setBotLevelId(selectedLevelId);
     setShowColorPicker(false);
     setIsFlipped(nextColor !== 'w');
   };
@@ -90,6 +187,43 @@ export default function ChessUI() {
     if (!playerColor) return 'b';
     return playerColor === 'w' ? 'b' : 'w';
   };
+
+  useEffect(() => {
+    const boardElement = boardRef.current;
+
+    if (!boardElement) {
+      return undefined;
+    }
+
+    const updateBoardMetrics = () => {
+      const rect = boardElement.getBoundingClientRect();
+      const cellSize = rect.width / 8;
+
+      setBoardMetrics({
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        cellSize,
+      });
+    };
+
+    updateBoardMetrics();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateBoardMetrics();
+    });
+
+    resizeObserver.observe(boardElement);
+    window.addEventListener('resize', updateBoardMetrics);
+    window.addEventListener('scroll', updateBoardMetrics, true);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateBoardMetrics);
+      window.removeEventListener('scroll', updateBoardMetrics, true);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isStockfishMode) {
@@ -102,6 +236,8 @@ export default function ChessUI() {
     }
 
     stockfishRef.current = new Worker('/stockfish-18-lite-single.js');
+    initializeStockfishEngine(stockfishRef.current);
+    applyStockfishLevel(stockfishRef.current, currentBotLevel);
 
     stockfishRef.current.onmessage = (event) => {
       if (!event.data.startsWith('bestmove')) {
@@ -128,9 +264,9 @@ export default function ChessUI() {
         stockfishRef.current = null;
       }
     };
-  }, [isStockfishMode]);
+  }, [isStockfishMode, botLevelId, currentBotLevel]);
 
-  const makeBotMove = () => {
+  const makeBotMove = useEffectEvent(() => {
     if (!isBotMode || isBotThinking || promocao || showColorPicker) {
       return;
     }
@@ -151,14 +287,17 @@ export default function ChessUI() {
       }
 
       const fen = getFen();
+      applyStockfishLevel(stockfishRef.current, currentBotLevel);
       stockfishRef.current.postMessage(`position fen ${fen}`);
-      stockfishRef.current.postMessage(`go depth ${botDifficulty}`);
+      stockfishRef.current.postMessage(`go movetime ${currentBotLevel.moveTimeMs}`);
       return;
     }
 
-    luanMoveTimeoutRef.current = window.setTimeout(() => {
+    botMoveTimeoutRef.current = window.setTimeout(() => {
       try {
-        const bestMove = getLuanAIMove(getFen(), { difficulty: botDifficulty });
+        const bestMove = getLunaiMove(getFen(), {
+          depth: currentBotLevel.lunaiDepth,
+        });
 
         if (bestMove) {
           makeMove(bestMove.from, bestMove.to, bestMove.promotion);
@@ -166,10 +305,10 @@ export default function ChessUI() {
         }
       } finally {
         setIsBotThinking(false);
-        luanMoveTimeoutRef.current = null;
+        botMoveTimeoutRef.current = null;
       }
     }, 40);
-  };
+  });
 
   useEffect(() => {
     if (!isBotMode || promocao || showColorPicker) {
@@ -180,12 +319,12 @@ export default function ChessUI() {
     return () => {
       window.clearTimeout(timer);
 
-      if (luanMoveTimeoutRef.current) {
-        window.clearTimeout(luanMoveTimeoutRef.current);
-        luanMoveTimeoutRef.current = null;
+      if (botMoveTimeoutRef.current) {
+        window.clearTimeout(botMoveTimeoutRef.current);
+        botMoveTimeoutRef.current = null;
       }
     };
-  }, [turno, activeMode, isFlipped, promocao, showColorPicker]);
+  }, [turno, activeMode, isFlipped, promocao, showColorPicker, isBotMode]);
 
   const encontrarCasa = (id) => {
     const [rowIndex, colIndex] = id.split('-').map(Number);
@@ -219,28 +358,22 @@ export default function ChessUI() {
   };
 
   const getBoardPoint = (clientX, clientY) => {
-    const boardElement = boardRef.current;
-    if (!boardElement) return null;
+    if (!boardMetrics) return null;
 
-    const rect = boardElement.getBoundingClientRect();
     return {
-      x: clientX - rect.left,
-      y: clientY - rect.top,
+      x: clientX - boardMetrics.left,
+      y: clientY - boardMetrics.top,
     };
   };
 
   const getSquareCenter = (square) => {
-    const boardElement = boardRef.current;
     const position = getDisplayPosition(square);
 
-    if (!boardElement || !position) return null;
-
-    const rect = boardElement.getBoundingClientRect();
-    const cellSize = rect.width / 8;
+    if (!boardMetrics || !position) return null;
 
     return {
-      x: (position.col * cellSize) + (cellSize / 2),
-      y: (position.row * cellSize) + (cellSize / 2),
+      x: (position.col * boardMetrics.cellSize) + (boardMetrics.cellSize / 2),
+      y: (position.row * boardMetrics.cellSize) + (boardMetrics.cellSize / 2),
     };
   };
 
@@ -265,6 +398,10 @@ export default function ChessUI() {
 
     return encontrarCasa(`${rowIndex}-${colIndex}`);
   };
+
+  const getSquareFromPointEvent = useEffectEvent((clientX, clientY) => (
+    getSquareFromPoint(clientX, clientY)
+  ));
 
   const toggleArrow = (from, to) => {
     setArrows((currentArrows) => {
@@ -311,7 +448,7 @@ export default function ChessUI() {
     }
 
     const handleMouseMove = (event) => {
-      const hoverSquare = getSquareFromPoint(event.clientX, event.clientY);
+      const hoverSquare = getSquareFromPointEvent(event.clientX, event.clientY);
 
       setArrowDraft((currentDraft) => {
         if (!currentDraft) {
@@ -334,7 +471,7 @@ export default function ChessUI() {
 
       event.preventDefault();
 
-      const targetSquare = getSquareFromPoint(event.clientX, event.clientY);
+      const targetSquare = getSquareFromPointEvent(event.clientX, event.clientY);
 
       if (targetSquare && targetSquare !== arrowDraft.from) {
         toggleArrow(arrowDraft.from, targetSquare);
@@ -394,9 +531,9 @@ export default function ChessUI() {
     setArrowDraft(null);
     setIsBotThinking(false);
 
-    if (luanMoveTimeoutRef.current) {
-      window.clearTimeout(luanMoveTimeoutRef.current);
-      luanMoveTimeoutRef.current = null;
+    if (botMoveTimeoutRef.current) {
+      window.clearTimeout(botMoveTimeoutRef.current);
+      botMoveTimeoutRef.current = null;
     }
   };
 
@@ -508,7 +645,7 @@ export default function ChessUI() {
   return (
     <div className="chess-container">
       <header className="chess-header">
-        <h1 className="logo">The <span>CHESS</span></h1>
+        <h1 className="logo">The <span>CHESS♟️</span></h1>
         <div className="game-modes">
           <button
             className={`mode-btn ${activeMode === 'stockfish' ? 'active' : ''}`}
@@ -524,17 +661,17 @@ export default function ChessUI() {
             STOCKFISH🐟
           </button>
           <button
-            className={`mode-btn ${activeMode === 'luan' ? 'active' : ''}`}
+            className={`mode-btn ${activeMode === 'lunai' ? 'active' : ''}`}
             onClick={() => {
-              if (activeMode !== 'luan') {
+              if (activeMode !== 'lunai') {
                 novoJogo();
                 setPlayerColor(null);
                 setShowColorPicker(true);
-                setActiveMode('luan');
+                setActiveMode('lunai');
               }
             }}
           >
-            LUAN AI🤖🥀
+            LUNAI☠️😥
           </button>
           <button
             className={`mode-btn ${activeMode === 'local' ? 'active' : ''}`}
@@ -552,23 +689,20 @@ export default function ChessUI() {
 
       <div className={`color-picker-modal ${showColorPicker ? '' : 'hidden'}`}>
         <div className="color-picker-content">
-          <h3>{`Novo Jogo contra ${isLuanMode ? 'Luan AI' : 'Stockfish'}`}</h3>
+          <h3>{`Novo Jogo contra ${getActiveBotLabel()}`}</h3>
 
           <div className="difficulty-section">
-            <label>Dificuldade:</label>
+            <label>{isStockfishMode ? 'Nível por Elo:' : 'Dificuldade:'}</label>
             <select
               className="difficulty-select"
-              value={selectedDifficulty}
-              onChange={(event) => setSelectedDifficulty(Number(event.target.value))}
+              value={selectedLevelId}
+              onChange={(event) => setSelectedLevelId(event.target.value)}
             >
-              <option value={2}>Arthur🥀😭</option>
-              <option value={3}>Chumbos maximus</option>
-              <option value={5}>Facil</option>
-              <option value={7}>Marromeno</option>
-              <option value={10}>Medio</option>
-              <option value={15}>Dificil</option>
-              <option value={20}>Mestre </option>
-              <option value={25}>GM (Luan)🐐</option>
+              {BOT_LEVELS.map((level) => (
+                <option key={level.id} value={level.id}>
+                  {`${level.label} • ${level.stockfishElo} Elo`}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -584,7 +718,7 @@ export default function ChessUI() {
             </div>
             <div className="color-option" onClick={() => handleColorChoice('random')}>
               <div className="color-preview random">?</div>
-              <span>Aleatorio</span>
+              <span>Aleatório</span>
             </div>
           </div>
         </div>
@@ -649,7 +783,7 @@ export default function ChessUI() {
 
           <div className={`promotion-modal ${promocao ? '' : 'hidden'}`}>
             <div className="promotion-content">
-              <h3>Escolha a peca</h3>
+              <h3>Escolha a peça</h3>
               <div className="promotion-options">
                 <div className="promotion-piece" onClick={() => promocaoEscolhida('q')}>
                   <img src={PIECE_IMAGES.Q} alt="Rainha" />

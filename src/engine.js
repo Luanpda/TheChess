@@ -485,7 +485,3 @@ export function movimentoChess(fen, options = {}) {
     promotion: melhorJogada.promotion,
   };
 }
-
-export function getLuanAIMove(fen, options = {}) {
-  return movimentoChess(fen, options);
-}
